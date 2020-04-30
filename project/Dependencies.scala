@@ -6,6 +6,6 @@ object Dependencies {
   lazy val scalaScraper = Seq(
     "net.ruippeixotog" %% "scala-scraper" % "2.2.0"
   )
-  lazy val dependencies = scalaScraper
+  lazy val dependencies: Seq[ModuleID] = scalaScraper
 }
 
