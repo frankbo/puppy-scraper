@@ -5,7 +5,7 @@ import puppy.model.DogModel.Dog
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait PuppiesI {
+trait PuppiesTrait {
   def getPuppies(getFromUrl: String => Browser#DocumentType)(
       implicit ec: ExecutionContext): Future[List[Dog]]
 }
