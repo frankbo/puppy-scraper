@@ -5,6 +5,7 @@ object Dependencies {
   val akkaHttpVersion = "10.1.11"
   val akkaStreamVersion = "2.5.31"
   val pureConfigVersion = "0.12.3"
+  val catsEffectVersion = "2.1.3"
 
   lazy val scalaScraper = Seq(
     "net.ruippeixotog" %% "scala-scraper" % "2.2.0"
@@ -20,5 +21,10 @@ object Dependencies {
     "com.github.pureconfig" %% "pureconfig" % pureConfigVersion
   )
 
-  lazy val dependencies: Seq[ModuleID] = scalaScraper ++ akka ++ pureConfig
+  lazy val catsEffect = Seq(
+    "org.typelevel" %% "cats-effect" % catsEffectVersion
+  )
+
+  lazy val dependencies
+    : Seq[ModuleID] = scalaScraper ++ akka ++ pureConfig ++ catsEffect
 }

@@ -9,12 +9,12 @@ import puppy.model.Model.{Dog, ServiceConf}
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MessengerTrait {
-  def sendUpdate(executeRequest: HttpRequest => Future[HttpResponse],
-                 dogs: List[Dog],
-                 conf: ServiceConf)(
-      implicit m: Materializer,
-      ec: ExecutionContext): List[Future[HttpResponse]]
-  // TODO ServiceConf relevant here?
+  def sendUpdate(
+      executeRequest: HttpRequest => Future[HttpResponse],
+      dogs: List[Dog],
+      conf: ServiceConf)( // TODO Find a better way then passing in the config through the trait.
+                         implicit m: Materializer,
+                         ec: ExecutionContext): Future[List[HttpResponse]]
 }
 
 object Telegram extends MessengerTrait {
@@ -24,13 +24,13 @@ object Telegram extends MessengerTrait {
                           dogs: List[Dog],
                           conf: ServiceConf)(
       implicit m: Materializer,
-      ec: ExecutionContext): List[Future[HttpResponse]] = {
-    dogs.map(d => {
-      val text = URLEncoder.encode(formatText(d), "UTF-8")
-      val uri = telegramApiUrl ++ s"/bot${conf.telegramToken}/sendMessage?chat_id=${conf.telegramChatId}&text=$text&parse_mode=HTML"
-      executeRequest(HttpRequest(method = HttpMethods.GET, uri = uri))
-    })
-
+      ec: ExecutionContext): Future[List[HttpResponse]] = {
+    Future.sequence(dogs
+      .map(d => {
+        val text = URLEncoder.encode(formatText(d), "UTF-8")
+        val uri = telegramApiUrl ++ s"/bot${conf.telegramToken}/sendMessage?chat_id=${conf.telegramChatId}&text=$text&parse_mode=HTML"
+//        executeRequest(HttpRequest(method = HttpMethods.GET, uri = uri))
+      }))
   }
 
   def formatText(dog: Dog): String = {
