@@ -1,26 +1,45 @@
 package puppy
 
-import net.ruippeixotog.scalascraper.browser.{Browser, JsoupBrowser}
-import puppy.model.DogModel.Dog
-import puppy.resources.{Iserlohn, Olpe}
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
+import akka.stream.ActorMaterializer
+import net.ruippeixotog.scalascraper.browser.JsoupBrowser
+import puppy.messenger.Telegram
+import puppy.model.Model.ServiceConf
+import puppy.resources.Olpe
+import pureconfig._
+import pureconfig.generic.auto._
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.io.StdIn
 import scala.util.{Failure, Success}
 
 object Main extends App {
-  implicit val ec: ExecutionContextExecutor = ExecutionContext.global
-  val getFromUrl: String => Browser#DocumentType = JsoupBrowser().get
-  val puppiesIserlohn = Iserlohn.getPuppies(getFromUrl)
-  val puppiesOlpe = Olpe.getPuppies(getFromUrl)
-  val result = for {
-    iserlohn <- puppiesIserlohn
-    olpe <- puppiesOlpe
-  } yield iserlohn ++ olpe // TODO applicative. Check that one of all resolved
+  implicit val system: ActorSystem = ActorSystem("puppy-scraper")
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val executionContext: ExecutionContextExecutor = system.dispatcher
+
+  val config = ConfigSource.default.load[ServiceConf] match {
+    case Right(c) => c
+    case Left(e)  => throw new Error(e.toString)
+  }
+
+  val getFromUrl = JsoupBrowser().get(_)
+  val animalShelters =
+    List(Olpe.getPuppies(getFromUrl))
+  val result =
+    Future
+      .traverse(animalShelters)(_.recoverWith({
+        case _ => Future { List.empty }
+      }))
+      .map(_.flatten)
 
   result.onComplete({
-    case Success(puppies) => puppies.map(println(_)) //akka client
-    case Failure(error)   => println(error)
+    case Success(puppies) =>
+      Future
+        .sequence(Telegram.sendUpdate(Http().singleRequest(_), puppies, config))
+        .onComplete({ case Failure(error) => println(error) })
+    case Failure(error) => println(error)
   })
 
   StdIn.readLine() // let it run until user presses return
