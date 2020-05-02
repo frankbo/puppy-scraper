@@ -5,15 +5,17 @@ import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import net.ruippeixotog.scalascraper.model.Element
 import net.ruippeixotog.scalascraper.scraper.ContentExtractors.elementList
-import puppy.model.DogModel.Dog
+import puppy.model.Model.{Dog, Shelter}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object Olpe extends PuppiesI {
+object Olpe extends ResourceTrait {
   val baseUrl: String = "https://www.tierheim-olpe.de"
+  val url: String = baseUrl ++ "/hunde/unsere-hunde/index.php"
+
   override def getPuppies(getFromUrl: String => Browser#DocumentType)(
       implicit ec: ExecutionContext): Future[List[Dog]] = Future {
-    getDogs(getFromUrl(baseUrl ++ "/hunde/unsere-hunde/index.php"))
+    getDogs(getFromUrl(url))
   }
 
   def getDogs(doc: Browser#DocumentType): List[Dog] = {
@@ -30,6 +32,7 @@ object Olpe extends PuppiesI {
       List.empty
     } else {
       Dog(name = head.head >> text("p"),
+          shelter = Shelter("Olpe", url),
           pics = Some(extractPicsSrc(head(1))),
           description = head(2) >> text("p")) :: extractSingleDog(tail)
     }
