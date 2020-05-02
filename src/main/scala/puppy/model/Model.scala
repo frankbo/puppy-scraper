@@ -1,8 +1,12 @@
 package puppy.model
 
-object DogModel {
+object Model {
+  case class Shelter(name: String, url: String)
+
   case class Dog(name: String,
                  description: String = "",
                  pics: Option[Seq[String]] = None,
-                 shelter: String)
+                 shelter: Shelter)
+
+  case class ServiceConf(telegramToken: String, telegramChatId: String)
 }
