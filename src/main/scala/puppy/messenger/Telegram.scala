@@ -1,25 +1,22 @@
 package puppy.messenger
 
-import java.net.URLEncoder
-
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, Uri}
-import cats.implicits._
 import cats.effect.{ContextShift, IO}
+import cats.implicits._
 import puppy.model.Model.{Dog, ServiceConf}
 
 import scala.concurrent.Future
 
 trait MessengerTrait {
-  def sendUpdate(executeRequest: HttpRequest => Future[HttpResponse],
-                 dogs: List[Dog])(implicit cs: ContextShift[IO]): IO[Unit]
+  def sendUpdate(dogs: List[Dog]): IO[Unit]
 }
 
-class Telegram(conf: ServiceConf) extends MessengerTrait {
+class Telegram(executeRequest: HttpRequest => Future[HttpResponse],
+               conf: ServiceConf)(implicit cs: ContextShift[IO])
+    extends MessengerTrait {
   val telegramApiUrl = "https://api.telegram.org"
 
-  override def sendUpdate(
-      executeRequest: HttpRequest => Future[HttpResponse],
-      dogs: List[Dog])(implicit cs: ContextShift[IO]): IO[Unit] = {
+  override def sendUpdate(dogs: List[Dog]): IO[Unit] = {
     dogs
       .map(d => {
         val uri = Uri(
