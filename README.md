@@ -14,4 +14,5 @@ could be extended easily. Supported shelters are:
 For now the script only runs locally and not on a server.
 To run it locally an `application.conf` file needs to be created
 with the credentials of the Bot. The relevant config params can be found
-under `Model.ServiceConf`.
+under `Model.ServiceConf`.  
+Use the command `sbt "~reStart"` from `sbt-revolver` to get fast reloads while developing 
