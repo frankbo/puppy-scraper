@@ -9,22 +9,25 @@ import net.ruippeixotog.scalascraper.browser.{Browser, JsoupBrowser}
 import puppy.messenger.Telegram
 import puppy.model.Model.{Dog, ServiceConf}
 import puppy.resources.Olpe
-import pureconfig._
-import pureconfig.generic.auto._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+
+object Config {
+  import pureconfig._
+  import pureconfig.generic.auto._
+
+  def readConfig(): IO[ServiceConf] = {
+    IO(ConfigSource.default.loadOrThrow[ServiceConf])
+  }
+}
 
 object Main extends IOApp {
   implicit val system: ActorSystem = ActorSystem("puppy-scraper")
   implicit val ec: ExecutionContext = system.dispatcher
 
-  val config: ServiceConf = ConfigSource.default.loadOrThrow[ServiceConf]
-  val getFromUrl = JsoupBrowser().get(_)
-  val ref = Ref.of[IO, List[Dog]](List.empty)
-  val telegram = new Telegram(Http().singleRequest(_), config)
-
   def fetchShelters(get: String => Browser#DocumentType,
-                    listRef: Ref[IO, List[Dog]]): IO[Unit] = {
+                    listRef: Ref[IO, List[Dog]],
+                    telegram: Telegram): IO[Unit] = {
     val shelters = List(Olpe.getPuppies(get))
     for {
       dogs <- shelters
@@ -40,10 +43,14 @@ object Main extends IOApp {
   def repeat(io: IO[Unit]): IO[Nothing] =
     io >> IO.sleep(1.minute) >> IO.suspend(repeat(io)) // use >> instead of *> for stack safety
 
-  override def run(args: List[String]): IO[ExitCode] =
+  override def run(args: List[String]): IO[ExitCode] = {
+    val getFromUrl = JsoupBrowser().get(_)
     for {
       _ <- IO(println("Start crawling"))
-      initRef <- ref
-      _ <- repeat(fetchShelters(getFromUrl, initRef)) //Fiber or not??
+      config <- Config.readConfig()
+      telegramClient = new Telegram(Http().singleRequest(_), config)
+      initRef <- Ref.of[IO, List[Dog]](List.empty)
+      _ <- repeat(fetchShelters(getFromUrl, initRef, telegramClient)) //Fiber or not??
     } yield ExitCode.Success
+  }
 }
