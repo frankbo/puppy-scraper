@@ -1,35 +1,37 @@
 package puppy.messenger
 
 import java.net.URLEncoder
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse}
+
+import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse, Uri}
 import cats.implicits._
 import cats.effect.{ContextShift, IO}
 import puppy.model.Model.{Dog, ServiceConf}
+
 import scala.concurrent.Future
 
 trait MessengerTrait {
-  def sendUpdate(
-      executeRequest: HttpRequest => Future[HttpResponse],
-      dogs: List[Dog],
-      conf: ServiceConf)(implicit cs: ContextShift[IO]): IO[List[Unit]]
+  def sendUpdate(executeRequest: HttpRequest => Future[HttpResponse],
+                 dogs: List[Dog])(implicit cs: ContextShift[IO]): IO[Unit]
 }
 
-object Telegram extends MessengerTrait {
+class Telegram(conf: ServiceConf) extends MessengerTrait {
   val telegramApiUrl = "https://api.telegram.org"
 
   override def sendUpdate(
       executeRequest: HttpRequest => Future[HttpResponse],
-      dogs: List[Dog],
-      conf: ServiceConf)(implicit cs: ContextShift[IO]): IO[List[Unit]] = {
+      dogs: List[Dog])(implicit cs: ContextShift[IO]): IO[Unit] = {
     dogs
       .map(d => {
-        val text = URLEncoder.encode(formatText(d), "UTF-8")
-        val uri = telegramApiUrl ++ s"/bot${conf.telegramToken}/sendMessage?chat_id=${conf.telegramChatId}&text=$text&parse_mode=HTML"
-        IO(println(d.name))
-//        IO.fromFuture(
-//          IO(executeRequest(HttpRequest(method = HttpMethods.GET, uri = uri))))
+        val uri = Uri(
+          telegramApiUrl ++ s"/bot${conf.telegramToken}/sendMessage").withQuery(
+          Uri.Query("chat_id" -> conf.telegramChatId,
+                    "text" -> formatText(d),
+                    "parse_mode" -> "HTML"))
+        IO.fromFuture(
+          IO(executeRequest(HttpRequest(method = HttpMethods.GET, uri = uri))))
       })
       .parSequence
+      .as(())
   }
 
   def formatText(dog: Dog): String = {

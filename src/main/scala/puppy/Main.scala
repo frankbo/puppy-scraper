@@ -18,43 +18,37 @@ import scala.io.StdIn
 
 object Main extends App {
   implicit val system: ActorSystem = ActorSystem("puppy-scraper")
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
   implicit val ec: ExecutionContext = system.dispatcher
   implicit val timer: Timer[IO] = IO.timer(ec)
   implicit val contextShift: ContextShift[IO] =
     IO.contextShift(ec)
 
-  val config: ServiceConf = ConfigSource.default.load[ServiceConf] match {
-    case Right(c) => c
-    case Left(e)  => throw new Error(e.toString)
-  }
-
+  val config: ServiceConf = ConfigSource.default.loadOrThrow[ServiceConf]
   val getFromUrl = JsoupBrowser().get(_)
   val ref = Ref.of[IO, List[Dog]](List.empty)
+  val telegram = new Telegram(config)
 
   def fetchShelters(get: String => Browser#DocumentType,
-                    conf: ServiceConf,
-                    listRef: Ref[IO, List[Dog]]): IO[List[Unit]] = {
+                    listRef: Ref[IO, List[Dog]]): IO[Unit] = {
     val shelters = List(Olpe.getPuppies(get))
-
-    shelters
-      .parTraverse(_.recoverWith({ case _ => IO(List.empty) }))
-      .map(_.flatten)
-      .flatMap(dogs => {
-        val listOfDogs = listRef.get.map(_.diff(dogs))
-        listRef.set(dogs)
-        listOfDogs
-      })
-      .flatMap(d => Telegram.sendUpdate(Http().singleRequest(_), d, conf))
+    for {
+      dogs <- shelters
+        .parTraverse(_.recoverWith { case _ => IO(List.empty) })
+        .map(_.flatten)
+      currentDogs <- listRef.get
+      diffedDogs = dogs.diff(currentDogs)
+      _ <- listRef.set(dogs)
+      _ <- telegram.sendUpdate(Http().singleRequest(_), diffedDogs)
+    } yield ()
   }
 
-  def repeat(io: IO[List[Unit]]): IO[Nothing] =
+  def repeat(io: IO[Unit]): IO[Nothing] =
     io >> IO.sleep(1.minute) >> IO.suspend(repeat(io)) // use >> instead of *> for stack safety
 
   val app = for {
     _ <- IO(println("Start crawling"))
     initRef <- ref
-    threads <- repeat(fetchShelters(getFromUrl, config, initRef)).start
+    threads <- repeat(fetchShelters(getFromUrl, initRef)).start
   } yield threads
 
   app.unsafeRunSync() // Move to IOApp and use IO.never
