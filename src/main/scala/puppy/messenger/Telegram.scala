@@ -1,36 +1,35 @@
 package puppy.messenger
 
 import java.net.URLEncoder
-
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, HttpResponse}
-import akka.stream.Materializer
+import cats.implicits._
+import cats.effect.{ContextShift, IO}
 import puppy.model.Model.{Dog, ServiceConf}
-
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 trait MessengerTrait {
   def sendUpdate(
       executeRequest: HttpRequest => Future[HttpResponse],
       dogs: List[Dog],
-      conf: ServiceConf)( // TODO Find a better way then passing in the config through the trait.
-                         implicit m: Materializer,
-                         ec: ExecutionContext): Future[List[HttpResponse]]
+      conf: ServiceConf)(implicit cs: ContextShift[IO]): IO[List[Unit]]
 }
 
 object Telegram extends MessengerTrait {
   val telegramApiUrl = "https://api.telegram.org"
 
-  override def sendUpdate(executeRequest: HttpRequest => Future[HttpResponse],
-                          dogs: List[Dog],
-                          conf: ServiceConf)(
-      implicit m: Materializer,
-      ec: ExecutionContext): Future[List[HttpResponse]] = {
-    Future.sequence(dogs
+  override def sendUpdate(
+      executeRequest: HttpRequest => Future[HttpResponse],
+      dogs: List[Dog],
+      conf: ServiceConf)(implicit cs: ContextShift[IO]): IO[List[Unit]] = {
+    dogs
       .map(d => {
         val text = URLEncoder.encode(formatText(d), "UTF-8")
         val uri = telegramApiUrl ++ s"/bot${conf.telegramToken}/sendMessage?chat_id=${conf.telegramChatId}&text=$text&parse_mode=HTML"
-//        executeRequest(HttpRequest(method = HttpMethods.GET, uri = uri))
-      }))
+        IO(println(d.name))
+//        IO.fromFuture(
+//          IO(executeRequest(HttpRequest(method = HttpMethods.GET, uri = uri))))
+      })
+      .parSequence
   }
 
   def formatText(dog: Dog): String = {

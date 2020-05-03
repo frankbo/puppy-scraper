@@ -1,5 +1,6 @@
 package puppy.resources
 
+import cats.effect.IO
 import net.ruippeixotog.scalascraper.browser.Browser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
@@ -7,16 +8,13 @@ import net.ruippeixotog.scalascraper.model.Element
 import net.ruippeixotog.scalascraper.scraper.ContentExtractors.elementList
 import puppy.model.Model.{Dog, Shelter}
 
-import scala.concurrent.{ExecutionContext, Future}
-
 object Olpe extends ResourceTrait {
   val baseUrl: String = "https://www.tierheim-olpe.de"
   val url: String = baseUrl ++ "/hunde/unsere-hunde/index.php"
 
-  override def getPuppies(getFromUrl: String => Browser#DocumentType)(
-      implicit ec: ExecutionContext): Future[List[Dog]] = Future {
-    getDogs(getFromUrl(url))
-  }
+  override def getPuppies(
+      getFromUrl: String => Browser#DocumentType): IO[List[Dog]] =
+    IO(getDogs(getFromUrl(url)))
 
   def getDogs(doc: Browser#DocumentType): List[Dog] = {
     val list = (doc >> elementList("div.paragraph")).lift(1)
