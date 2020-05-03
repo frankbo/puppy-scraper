@@ -8,7 +8,7 @@ import cats.implicits._
 import net.ruippeixotog.scalascraper.browser.{Browser, JsoupBrowser}
 import puppy.messenger.Telegram
 import puppy.model.Model.{Dog, ServiceConf}
-import puppy.resources.Olpe
+import puppy.resources.{Iserlohn, Olpe}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
@@ -28,7 +28,7 @@ object Main extends IOApp {
   def fetchShelters(get: String => Browser#DocumentType,
                     listRef: Ref[IO, List[Dog]],
                     telegram: Telegram): IO[Unit] = {
-    val shelters = List(Olpe.getPuppies(get))
+    val shelters = List(Olpe.getPuppies(get), Iserlohn.getPuppies(get))
     for {
       dogs <- shelters
         .parTraverse(_.recoverWith { case _ => IO(List.empty) })
